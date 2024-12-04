@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/rpc"
@@ -44,26 +43,12 @@ func NewServer(listenAddr string, proxyTo ProxyTo, log *zap.Logger) (*Server, er
 	}, nil
 }
 
-type HandleFunc func(w http.ResponseWriter, r *http.Request)
-
-func LogRequestMiddleware(log *zap.Logger, handler HandleFunc) HandleFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		req := r.Clone(r.Context())
-		defer req.Body.Close()
-
-		str, _ := io.ReadAll(req.Body)
-
-		log.Info(string(str), zap.String("method", req.Method), zap.String("url", req.RequestURI))
-
-		handler(w, r)
-	}
-}
-
 func (s *Server) Run() error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", LogRequestMiddleware(s.log, s.srv.ServeHTTP))
+	mux.HandleFunc("/", s.srv.ServeHTTP)
 	mux.HandleFunc("/websocket", s.ws.ServeHTTP)
 
+	//nolint:gosec // use http.Server with settings later
 	if err := http.ListenAndServe(s.addr, mux); err != nil {
 		s.log.Error("start server", zap.Error(err))
 	}
