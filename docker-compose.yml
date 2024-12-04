@@ -1,0 +1,26 @@
+services:
+  dev:
+    user: "1000:1000"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - IN_DOCKER_TARGET=fail
+    volumes:
+      - type: bind
+        consistency: delegated
+        source: .
+        target: /develop
+
+  ci:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["make", "lint", "test", "build"]
+    environment:
+      - IN_DOCKER_TARGET=fail
+    volumes:
+      - type: bind
+        consistency: delegated
+        source: .
+        target: /develop
