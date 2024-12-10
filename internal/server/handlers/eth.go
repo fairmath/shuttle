@@ -16,7 +16,7 @@ const ethRPCName = "eth"
 
 type EthProxy interface {
 	GetBlockByHeight(height string) (*api.Block, error)
-	GetTxsByHeight(height string) (*api.BlockWithTxs, error)
+	GetBlockTxsByHeight(height string) (*api.BlockWithTxs, error)
 	GetBalance(prefix, denom string, addr strfmt.Base64) (string, error)
 }
 
@@ -51,7 +51,7 @@ func (e *EthServer) GetBlockByNumber(height string, _ bool) (any, error) {
 		height = b.Block.Header.Height
 	}
 
-	if block, err = e.target.GetTxsByHeight(height); err != nil {
+	if block, err = e.target.GetBlockTxsByHeight(height); err != nil {
 		return nil, fmt.Errorf("get %s txs: %w", height, err)
 	}
 
