@@ -20,7 +20,7 @@ lint:
 
 .PHONY: build
 build:
-	go build -o ./bin/hellman ./cmd/
+	CGO_ENABLED=0 go build -ldflags="-extldflags=-static" -o ./bin/shuttle ./cmd/
 
 force: ;
 
