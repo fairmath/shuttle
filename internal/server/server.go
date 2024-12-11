@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"go.uber.org/zap"
 
+	"github.com/fairmath/shuttle/cmd/config"
 	"github.com/fairmath/shuttle/internal/server/handlers"
 )
 
@@ -25,7 +26,7 @@ type Server struct {
 	log     *zap.Logger
 }
 
-func NewServer(listenAddr string, proxyTo ProxyTo, log *zap.Logger) (*Server, error) {
+func NewServer(cfg config.Config, proxyTo ProxyTo, log *zap.Logger) (*Server, error) {
 	srv := rpc.NewServer()
 
 	for _, h := range registeredHandlers(proxyTo) {
@@ -34,10 +35,15 @@ func NewServer(listenAddr string, proxyTo ProxyTo, log *zap.Logger) (*Server, er
 		}
 	}
 
+	ws, err := NewWebsocketPool(cfg.WSTendermintURL, log)
+	if err != nil {
+		return nil, fmt.Errorf("websocket: %w", err)
+	}
+
 	return &Server{
 		srv:     srv,
-		ws:      NewWebsocketPool(log),
-		addr:    listenAddr,
+		ws:      ws,
+		addr:    cfg.ListenAddr,
 		proxyTo: proxyTo,
 		log:     log,
 	}, nil
@@ -77,5 +83,6 @@ func registeredHandlers(proxyTo ProxyTo) []Handler {
 	return []Handler{
 		handlers.NewEthServer(proxyTo),
 		handlers.NewTxPool(),
+		handlers.NewDebug(proxyTo),
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/types/bech32"
@@ -23,24 +24,29 @@ type CosmosApi struct {
 	bankApi   bankService.ClientService
 }
 
-func NewCosmosApi(host string, basePath string) *CosmosApi {
+func NewCosmosApi(serverURL string) (*CosmosApi, error) {
+	parsedUrl, err := url.Parse(serverURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse url: '%s': %w", serverURL, err)
+	}
+
 	return &CosmosApi{
 		blocksApi: bclient.NewHTTPClientWithConfig(strfmt.Default, &bclient.TransportConfig{
-			Host:     host,
-			BasePath: basePath,
-			Schemes:  []string{"https", "http"},
+			Host:     parsedUrl.Host,
+			BasePath: parsedUrl.Path,
+			Schemes:  []string{parsedUrl.Scheme},
 		}).Service,
 		txsApi: tclient.NewHTTPClientWithConfig(strfmt.Default, &tclient.TransportConfig{
-			Host:     host,
-			BasePath: basePath,
-			Schemes:  []string{"https", "http"},
+			Host:     parsedUrl.Host,
+			BasePath: parsedUrl.Path,
+			Schemes:  []string{parsedUrl.Scheme},
 		}).Service,
 		bankApi: bankClient.NewHTTPClientWithConfig(strfmt.Default, &bankClient.TransportConfig{
-			Host:     host,
-			BasePath: basePath,
-			Schemes:  []string{"https", "http"},
+			Host:     parsedUrl.Host,
+			BasePath: parsedUrl.Path,
+			Schemes:  []string{parsedUrl.Scheme},
 		}).Query,
-	}
+	}, nil
 }
 
 func (t *CosmosApi) GetBlockByHeight(height string) (*Block, error) {
@@ -85,6 +91,15 @@ func (t *CosmosApi) GetBlockTxsByHeight(height string) (*BlockWithTxs, error) {
 	blockTxs.Block.Data.Txs = txHashes
 
 	return blockTxs, nil
+}
+
+func (t *CosmosApi) GetTx(hash string) (*TxInfo, error) {
+	res, err := t.txsApi.ServiceGetTx(tservice.NewServiceGetTxParams().WithHash(hash))
+	if err != nil {
+		return nil, fmt.Errorf("get tx: %w", err)
+	}
+
+	return (*TxInfo)(res.Payload), nil
 }
 
 func (t *CosmosApi) GetBalance(prefix, denom string, addr strfmt.Base64) (string, error) {

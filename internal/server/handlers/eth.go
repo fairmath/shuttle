@@ -18,6 +18,7 @@ type EthProxy interface {
 	GetBlockByHeight(height string) (*api.Block, error)
 	GetBlockTxsByHeight(height string) (*api.BlockWithTxs, error)
 	GetBalance(prefix, denom string, addr strfmt.Base64) (string, error)
+	GetTx(hash string) (*api.TxInfo, error)
 }
 
 type EthServer struct {
@@ -85,4 +86,25 @@ func (e *EthServer) GetBalance(addr string, _ string) (string, error) {
 	}
 
 	return "0x" + value.Text(16), nil //nolint:gomnd // base
+}
+
+func (e *EthServer) GetTransactionReceipt(hash string) (any, error) {
+	hash, _ = strings.CutPrefix(hash, "0x")
+
+	txInfo, err := e.target.GetTx(hash)
+	if err != nil {
+		return nil, fmt.Errorf("get tx by hash: %w", err)
+	}
+
+	block, err := e.target.GetBlockTxsByHeight(txInfo.TxResponse.Height)
+	if err != nil {
+		return nil, fmt.Errorf("get tx by height: %s: %w", txInfo.TxResponse.Height, err)
+	}
+
+	res, err := dto.ToEthTxReceipt(block, txInfo)
+	if err != nil {
+		return nil, fmt.Errorf("eth receipt converter: %w", err)
+	}
+
+	return res, nil
 }

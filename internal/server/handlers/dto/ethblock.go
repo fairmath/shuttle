@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/fairmath/shuttle/internal/client/tendermint/api"
-
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-openapi/strfmt"
+
+	"github.com/fairmath/shuttle/internal/client/tendermint/api"
 )
 
 type HexUint64 uint64
@@ -40,7 +40,7 @@ type Header struct { //nolint:tagliatelle // ethereum serialized json
 	Nonce           ethtypes.BlockNonce `json:"nonce"`
 	Size            HexUint64           `json:"size"`
 	TotalDifficulty *big.Int            `json:"total_difficulty"`
-	Transactions    []Tx                `json:"transactions"`
+	Transactions    []Tx                `json:"transactions,omitempty"`
 	Uncles          []string            `json:"uncles"`
 }
 
@@ -84,6 +84,11 @@ func FromCosmosBlockWithTxs(block *api.BlockWithTxs) (Header, error) {
 	blockBin, _ := block.Block.MarshalBinary()
 	blockSz := len(blockBin)
 
+	txs, err := ToEthTxs(block)
+	if err != nil {
+		return Header{}, fmt.Errorf("tx convert: %w", err)
+	}
+
 	return Header{
 		Hash:            common.Hash(block.BlockID.Hash),
 		Number:          big.NewInt(num),
@@ -99,21 +104,11 @@ func FromCosmosBlockWithTxs(block *api.BlockWithTxs) (Header, error) {
 		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)),
 		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)),
 		Size:            HexUint64(blockSz),
-		Transactions:    nil,
+		Transactions:    txs,
 		Uncles:          []string{},
 
 		Time: HexUint64(time.Time(block.Block.Header.Time).Unix()),
 	}, nil
-}
-
-func toCommonHash(data []strfmt.Base64) []common.Hash {
-	ret := make([]common.Hash, 0, len(data))
-
-	for _, v := range data {
-		ret = append(ret, common.Hash(v))
-	}
-
-	return ret
 }
 
 func firstTxHash(data []strfmt.Base64) common.Hash {

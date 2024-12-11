@@ -3,9 +3,10 @@ package config
 import "github.com/urfave/cli/v2"
 
 type Config struct {
-	TendermintURL string
-	ListenAddr    string
-	LogLevel      string
+	HTTPTendermintURL string
+	WSTendermintURL   string
+	ListenAddr        string
+	LogLevel          string
 }
 
 func NewConfig() *Config {
@@ -15,11 +16,19 @@ func NewConfig() *Config {
 func (c *Config) BuildFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
+			Name:        "ws-tendermint-url",
+			Usage:       "set up a Tendermint node url",
+			Destination: &c.WSTendermintURL,
+			Required:    true,
+			Value:       "http://localhost/websocket:1317",
+			EnvVars:     []string{"TENDERMINT_URL"},
+		},
+		&cli.StringFlag{
 			Name:        "http-tendermint-url",
 			Usage:       "set up a Tendermint node url",
-			Destination: &c.TendermintURL,
+			Destination: &c.HTTPTendermintURL,
 			Required:    true,
-			Value:       "localhost:1317",
+			Value:       "http://localhost:1317",
 			EnvVars:     []string{"TENDERMINT_URL"},
 		},
 		&cli.StringFlag{

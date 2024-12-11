@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"math/rand/v2"
 	"net/http"
+	"net/url"
 	"sync"
 
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
@@ -19,23 +20,49 @@ import (
 	"go.uber.org/zap"
 )
 
+const ETHSubscribeMethod = "eth_subscribe"
+
 type WebsocketPool struct {
 	log          *zap.Logger
+	tendermintWS string
 	cosmosClient *rpchttp.HTTP
 	events       <-chan coretypes.ResultEvent
 }
 
-type JSONRpcMsg struct {
+type JSONRpcMsg struct { //nolint:tagliatelle // ethereum serialized json
 	ID       uint64 `json:"id"`
-	Params   []any  `json:"params"`
+	Params   any    `json:"params"`
 	Method   string `json:"method"`
 	Protocol string `json:"jsonrpc"`
 }
 
-func NewWebsocketPool(log *zap.Logger) *WebsocketPool {
-	return &WebsocketPool{
-		log: log,
+type JSONRpcSubscriptionMsg struct { //nolint:tagliatelle // ethereum serialized json
+	Result       any    `json:"result"`
+	Subscription string `json:"subscription"`
+}
+
+func NewWebsocketPool(tendermintWS string, log *zap.Logger) (*WebsocketPool, error) {
+	parsed, err := url.Parse(tendermintWS)
+	if err != nil {
+		return nil, fmt.Errorf("parse tendermint ws url: '%s': %w", tendermintWS, err)
 	}
+
+	log.Info("creating ws connection", zap.String("host", parsed.Host), zap.String("path", parsed.Path))
+
+	cosmosClient, err := rpchttp.New(parsed.Scheme+"://"+parsed.Host, parsed.Path)
+	if err != nil {
+		return nil, fmt.Errorf("create tendermint websocket: %w", err)
+	}
+
+	if err := cosmosClient.Start(); err != nil {
+		return nil, fmt.Errorf("start listening tendermint websocket: %w", err)
+	}
+
+	return &WebsocketPool{
+		log:          log,
+		cosmosClient: cosmosClient,
+		tendermintWS: tendermintWS,
+	}, nil
 }
 
 func (wp *WebsocketPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -52,28 +79,16 @@ func (wp *WebsocketPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if wp.cosmosClient, err = rpchttp.New("https://testnet.computer.fairmath.xyz", "/websocket"); err != nil {
-		wp.log.Error("open cosmos ws connection", zap.Error(err))
-
-		return
-	}
-
-	if err := wp.cosmosClient.Start(); err != nil {
-		wp.log.Error("start cosmos ws client", zap.Error(err))
-
-		return
-	}
-
 	wp.serveConnection(r.Context(), connection)
 }
 
+//nolint:funlen,gocognit // websocket should be refactored later
 func (wp *WebsocketPool) serveConnection(ctx context.Context, connection *websocket.Conn) {
 	wp.log.Info("serve connection")
 
 	defer connection.Close()
 
 	done := make(chan struct{})
-
 	once := sync.Once{}
 	subscribers := make(chan uint32)
 	proxyDone := make(chan struct{})
@@ -106,15 +121,9 @@ func (wp *WebsocketPool) serveConnection(ctx context.Context, connection *websoc
 				}
 			}
 
-			if msg.Method == "eth_subscribe" {
+			if msg.Method == ETHSubscribeMethod {
 				once.Do(func() {
-					ctx, cancel := context.WithCancel(context.Background())
-					defer cancel()
-
-					query := "tm.event = 'NewBlock'"
-
-					wp.events, err = wp.cosmosClient.Subscribe(ctx, "github.com/fairmath/shuttle", query)
-					if err != nil {
+					if err := wp.prepareSubscription(); err != nil {
 						wp.log.Error("subscribe on cosmos events", zap.Error(err))
 
 						return
@@ -123,11 +132,10 @@ func (wp *WebsocketPool) serveConnection(ctx context.Context, connection *websoc
 					go func() {
 						defer close(proxyDone)
 
-						wp.startProxy(connection, subscribers, done)
+						wp.startProxy(connection, msg.ID, subscribers, done)
 					}()
 				})
 
-				wp.log.Info("request subscription", zap.String("msg", string(message)))
 				subscriptionID := rand.Uint32()
 
 				response := fmt.Sprintf(`{"jsonrpc":"2.0","result":"0x%x","id":%d}`, subscriptionID, msg.ID)
@@ -150,7 +158,23 @@ func (wp *WebsocketPool) serveConnection(ctx context.Context, connection *websoc
 	<-proxyDone
 }
 
-func (wp *WebsocketPool) startProxy(conn *websocket.Conn, subscribers chan uint32, done chan struct{}) {
+func (wp *WebsocketPool) prepareSubscription() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var err error
+
+	query := "tm.event = 'NewBlock'"
+
+	wp.events, err = wp.cosmosClient.Subscribe(ctx, "shuttle", query)
+	if err != nil {
+		return fmt.Errorf("subscribe: %w", err)
+	}
+
+	return nil
+}
+
+func (wp *WebsocketPool) startProxy(conn *websocket.Conn, id uint64, subscribers chan uint32, done chan struct{}) {
 	wp.log.Info("start proxying")
 
 	subscriberIDs := []uint32{}
@@ -173,29 +197,35 @@ func (wp *WebsocketPool) startProxy(conn *websocket.Conn, subscribers chan uint3
 				ParentHash:  common.Hash(data.Block.Header.LastCommitHash),
 				Nonce:       ethtypes.BlockNonce(binary.LittleEndian.AppendUint64([]byte{}, rand.Uint64())),
 				MixDigest:   common.Hash(data.Block.Header.ConsensusHash),
-				ReceiptHash: common.Hash(data.Block.Header.AppHash),
-				UncleHash:   common.Hash(data.Block.Header.NextValidatorsHash),
+				ReceiptHash: common.Hash{},
+				UncleHash:   common.Hash{},
 				Root:        common.Hash(data.Block.Header.EvidenceHash),
-				TxHash:      common.Hash(data.Block.Header.DataHash),
-				Extra:       []byte("empty"),
+				Extra:       []byte{},
 				Difficulty:  big.NewInt(int64(0x1046bb7e3f8)),
 
 				Time: uint64(data.Block.Header.Time.Unix()),
 			}
 
-			marshaled, err := json.Marshal(blockHeader)
+			msg := JSONRpcMsg{
+				ID:       id,
+				Method:   "eth_subscription",
+				Protocol: "2.0",
+				Params: JSONRpcSubscriptionMsg{
+					Subscription: "0x%x",
+					Result:       blockHeader,
+				},
+			}
+
+			respTemplate, err := json.Marshal(msg)
 			if err != nil {
-				wp.log.Error("marshal block", zap.Error(err))
+				wp.log.Error("marshal eth ws event", zap.Error(err))
 
 				continue
 			}
 
 			for _, sID := range subscriberIDs {
-				resp := fmt.Sprintf(`{"id":"%d","jsonrpc":"2.0","method":"eth_subscription","params":{"result":%s,"subscription":"0x%x"}}`,
-					1,
-					string(marshaled),
-					sID,
-				)
+				resp := fmt.Sprintf(string(respTemplate), sID)
+
 				if err := conn.WriteMessage(websocket.TextMessage, []byte(resp)); err != nil {
 					wp.log.Error("write err", zap.Error(err))
 
