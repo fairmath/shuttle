@@ -16,9 +16,12 @@ import (
 func runServer(cfg config.Config) error {
 	log := config.LoadLogger(cfg.LogLevel)
 
-	cl := api.NewCosmosApi(cfg.TendermintURL, "/")
+	cl, err := api.NewCosmosApi(cfg.HTTPTendermintURL)
+	if err != nil {
+		return fmt.Errorf("connect to tendermint api: %w", err)
+	}
 
-	srv, err := server.NewServer(cfg.ListenAddr, cl, log)
+	srv, err := server.NewServer(cfg, cl, log)
 	if err != nil {
 		return fmt.Errorf("new server: %w", err)
 	}

@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/fairmath/shuttle/internal/client/tendermint/api"
-
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-openapi/strfmt"
+
+	"github.com/fairmath/shuttle/internal/client/tendermint/api"
 )
 
 type HexUint64 uint64
@@ -40,7 +40,7 @@ type Header struct { //nolint:tagliatelle // ethereum serialized json
 	Nonce           ethtypes.BlockNonce `json:"nonce"`
 	Size            HexUint64           `json:"size"`
 	TotalDifficulty *big.Int            `json:"total_difficulty"`
-	Transactions    []common.Hash       `json:"transactions"`
+	Transactions    []Tx                `json:"transactions,omitempty"`
 	Uncles          []string            `json:"uncles"`
 }
 
@@ -50,6 +50,9 @@ func FromCosmosBlock(block *api.Block) (Header, error) {
 		return Header{}, fmt.Errorf("height conversion '%s' -> int64: %w", block.Block.Header.Height, err)
 	}
 
+	blockBin, _ := block.Block.MarshalBinary()
+	blockSz := len(blockBin)
+
 	return Header{
 		Hash:            common.Hash(block.BlockID.Hash),
 		Number:          big.NewInt(num),
@@ -57,15 +60,15 @@ func FromCosmosBlock(block *api.Block) (Header, error) {
 		ParentHash:      common.Hash(block.Block.Header.LastBlockID.Hash),
 		Nonce:           ethtypes.BlockNonce(binary.LittleEndian.AppendUint64([]byte{}, rand.Uint64())),
 		MixDigest:       common.Hash(block.Block.Header.ConsensusHash),
-		ReceiptHash:     common.Hash(block.Block.Header.AppHash),
+		ReceiptHash:     common.Hash(block.Block.Header.DataHash),
 		UncleHash:       common.Hash(block.Block.Header.NextValidatorsHash),
 		Root:            common.Hash(block.Block.Header.EvidenceHash),
-		TxHash:          common.Hash(block.Block.Header.DataHash),
-		Extra:           []byte("empty"),
+		TxHash:          common.Hash{},
+		Extra:           []byte{},
 		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)),
 		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)),
-		Size:            HexUint64(0x21b),
-		Transactions:    []common.Hash{},
+		Size:            HexUint64(blockSz),
+		Transactions:    nil,
 		Uncles:          []string{},
 
 		Time: HexUint64(time.Time(block.Block.Header.Time).Unix()),
@@ -78,6 +81,14 @@ func FromCosmosBlockWithTxs(block *api.BlockWithTxs) (Header, error) {
 		return Header{}, fmt.Errorf("height conversion '%s' -> int64: %w", block.Block.Header.Height, err)
 	}
 
+	blockBin, _ := block.Block.MarshalBinary()
+	blockSz := len(blockBin)
+
+	txs, err := ToEthTxs(block)
+	if err != nil {
+		return Header{}, fmt.Errorf("tx convert: %w", err)
+	}
+
 	return Header{
 		Hash:            common.Hash(block.BlockID.Hash),
 		Number:          big.NewInt(num),
@@ -85,27 +96,25 @@ func FromCosmosBlockWithTxs(block *api.BlockWithTxs) (Header, error) {
 		ParentHash:      common.Hash(block.Block.Header.LastBlockID.Hash),
 		Nonce:           ethtypes.BlockNonce(binary.LittleEndian.AppendUint64([]byte{}, rand.Uint64())),
 		MixDigest:       common.Hash(block.Block.Header.ConsensusHash),
-		ReceiptHash:     common.Hash(block.Block.Header.AppHash),
+		ReceiptHash:     common.Hash(block.Block.Header.DataHash),
 		UncleHash:       common.Hash(block.Block.Header.NextValidatorsHash),
 		Root:            common.Hash(block.Block.Header.EvidenceHash),
-		TxHash:          common.Hash(block.Block.Header.DataHash),
-		Extra:           []byte("empty"),
+		TxHash:          firstTxHash(block.Block.Data.Txs),
+		Extra:           []byte{},
 		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)),
 		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)),
-		Size:            HexUint64(0x21b),
-		Transactions:    toCommonHash(block.Block.Data.Txs),
+		Size:            HexUint64(blockSz),
+		Transactions:    txs,
 		Uncles:          []string{},
 
 		Time: HexUint64(time.Time(block.Block.Header.Time).Unix()),
 	}, nil
 }
 
-func toCommonHash(data []strfmt.Base64) []common.Hash {
-	ret := make([]common.Hash, 0, len(data))
-
-	for _, v := range data {
-		ret = append(ret, common.Hash(v))
+func firstTxHash(data []strfmt.Base64) common.Hash {
+	if len(data) > 0 {
+		return common.Hash(data[0])
 	}
 
-	return ret
+	return common.Hash{}
 }
