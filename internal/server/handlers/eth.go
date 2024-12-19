@@ -6,10 +6,10 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/go-openapi/strfmt"
+
 	"github.com/fairmath/shuttle/internal/client/tendermint/api"
 	"github.com/fairmath/shuttle/internal/server/handlers/dto"
-
-	"github.com/go-openapi/strfmt"
 )
 
 const ethRPCName = "eth"
@@ -22,14 +22,18 @@ type EthProxy interface {
 }
 
 type EthServer struct {
-	name   string
-	target EthProxy
+	name               string
+	target             EthProxy
+	cosmosDenom        string
+	cosmosBech32Prefix string
 }
 
-func NewEthServer(proxyTo EthProxy) *EthServer {
+func NewEthServer(proxyTo EthProxy, cfg Config) *EthServer {
 	return &EthServer{
-		name:   ethRPCName,
-		target: proxyTo,
+		name:               ethRPCName,
+		target:             proxyTo,
+		cosmosDenom:        cfg.CosmosDenom,
+		cosmosBech32Prefix: cfg.Bech32AddrPrefix,
 	}
 }
 
@@ -72,7 +76,7 @@ func (e *EthServer) GetBalance(addr string, _ string) (string, error) {
 		return "", fmt.Errorf("decode addr '%s': %w", addr, err)
 	}
 
-	amount, err := e.target.GetBalance("fairmath", "fmth", addrBytes)
+	amount, err := e.target.GetBalance(e.cosmosBech32Prefix, e.cosmosDenom, addrBytes)
 	if err != nil {
 		return "", fmt.Errorf("get balance: %w", err)
 	}

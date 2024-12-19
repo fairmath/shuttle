@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/big"
-	"math/rand/v2"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -58,15 +58,15 @@ func FromCosmosBlock(block *api.Block) (Header, error) {
 		Number:          big.NewInt(num),
 		Coinbase:        common.Address(block.Block.Header.ProposerAddress),
 		ParentHash:      common.Hash(block.Block.Header.LastBlockID.Hash),
-		Nonce:           ethtypes.BlockNonce(binary.LittleEndian.AppendUint64([]byte{}, rand.Uint64())),
+		Nonce:           ethtypes.BlockNonce(binary.LittleEndian.AppendUint64([]byte{}, rand.Uint64())), //nolint:gosec,lll // no reason for crypto rand
 		MixDigest:       common.Hash(block.Block.Header.ConsensusHash),
 		ReceiptHash:     common.Hash(block.Block.Header.DataHash),
 		UncleHash:       common.Hash(block.Block.Header.NextValidatorsHash),
 		Root:            common.Hash(block.Block.Header.EvidenceHash),
 		TxHash:          common.Hash{},
 		Extra:           []byte{},
-		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)),
-		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)),
+		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)), //nolint:gomnd // need to translate from cosmos chain
+		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)), //nolint:gomnd // need to translate from cosmos chain
 		Size:            HexUint64(blockSz),
 		Transactions:    nil,
 		Uncles:          []string{},
@@ -94,15 +94,15 @@ func FromCosmosBlockWithTxs(block *api.BlockWithTxs) (Header, error) {
 		Number:          big.NewInt(num),
 		Coinbase:        common.Address(block.Block.Header.ProposerAddress),
 		ParentHash:      common.Hash(block.Block.Header.LastBlockID.Hash),
-		Nonce:           ethtypes.BlockNonce(binary.LittleEndian.AppendUint64([]byte{}, rand.Uint64())),
+		Nonce:           ethtypes.BlockNonce(binary.LittleEndian.AppendUint64([]byte{}, rand.Uint64())), //nolint:gosec,lll // no reason for crypto rand
 		MixDigest:       common.Hash(block.Block.Header.ConsensusHash),
 		ReceiptHash:     common.Hash(block.Block.Header.DataHash),
 		UncleHash:       common.Hash(block.Block.Header.NextValidatorsHash),
 		Root:            common.Hash(block.Block.Header.EvidenceHash),
 		TxHash:          firstTxHash(block.Block.Data.Txs),
 		Extra:           []byte{},
-		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)),
-		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)),
+		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)), //nolint:gomnd // need to translate from cosmos chain
+		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)), //nolint:gomnd // need to translate from cosmos chain
 		Size:            HexUint64(blockSz),
 		Transactions:    txs,
 		Uncles:          []string{},

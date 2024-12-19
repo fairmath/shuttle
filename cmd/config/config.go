@@ -1,27 +1,34 @@
 package config
 
-import "github.com/urfave/cli/v2"
+import (
+	"github.com/urfave/cli/v2"
+
+	"github.com/fairmath/shuttle/internal/server/handlers"
+)
 
 type Config struct {
 	HTTPTendermintURL string
 	WSTendermintURL   string
 	ListenAddr        string
 	LogLevel          string
+	HandlersConfig    *handlers.Config
 }
 
 func NewConfig() *Config {
-	return &Config{}
+	return &Config{
+		HandlersConfig: handlers.NewConfig(),
+	}
 }
 
 func (c *Config) BuildFlags() []cli.Flag {
-	return []cli.Flag{
+	flags := []cli.Flag{
 		&cli.StringFlag{
 			Name:        "ws-tendermint-url",
 			Usage:       "set up a Tendermint node url",
 			Destination: &c.WSTendermintURL,
 			Required:    true,
 			Value:       "http://localhost/websocket:1317",
-			EnvVars:     []string{"TENDERMINT_URL"},
+			EnvVars:     []string{"WS_TENDERMINT_URL"},
 		},
 		&cli.StringFlag{
 			Name:        "http-tendermint-url",
@@ -29,7 +36,7 @@ func (c *Config) BuildFlags() []cli.Flag {
 			Destination: &c.HTTPTendermintURL,
 			Required:    true,
 			Value:       "http://localhost:1317",
-			EnvVars:     []string{"TENDERMINT_URL"},
+			EnvVars:     []string{"HTTP_TENDERMINT_URL"},
 		},
 		&cli.StringFlag{
 			Name:        "http-listen-addr",
@@ -47,4 +54,8 @@ func (c *Config) BuildFlags() []cli.Flag {
 			EnvVars:     []string{"LOG_LEVEL"},
 		},
 	}
+
+	flags = append(flags, c.HandlersConfig.BuildFlags()...)
+
+	return flags
 }

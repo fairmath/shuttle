@@ -1,16 +1,23 @@
 package dto
 
 import (
+	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
 	"strconv"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/fairmath/shuttle/internal/client/tendermint/api"
 )
+
+var ErrKeyNotFound = errors.New("public key not found")
 
 type TxLog struct { //nolint:tagliatelle // ethereum serialized json
 	Address          common.Address `json:"address"`
@@ -85,32 +92,36 @@ func ToEthTxs(blockTx *api.BlockWithTxs) ([]Tx, error) {
 			msgs = append(msgs, bindata...)
 		}
 
-		var amount uint64
+		var amount int64
 
 		if len(tx.AuthInfo.Fee.Amount) > 0 {
-			amount, err = strconv.ParseUint(tx.AuthInfo.Fee.Amount[0].Amount, 10, 64)
+			amount, err = strconv.ParseInt(tx.AuthInfo.Fee.Amount[0].Amount, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("parse amount '%s': %w", tx.AuthInfo.Fee.Amount[0].Amount, err)
 			}
 		}
 
-		pk, _ := tx.AuthInfo.SignerInfos[0].PublicKey.MarshalBinary()
+		signer, err := signerAddress(api.Tx(*tx))
+		if err != nil {
+			return nil, fmt.Errorf("signer addr: %w", err)
+		}
 
+		pk, _ := tx.AuthInfo.SignerInfos[0].PublicKey.MarshalBinary()
 		rtx = append(rtx, Tx{
 			BlockHash:        common.Hash(blockTx.BlockID.Hash),
 			BlockNumber:      big.NewInt(num),
-			Creates:          common.Address{},
-			From:             common.Address{},
-			To:               common.Address{},
+			Creates:          signer,
+			From:             signer,
+			To:               convertAddress(tx.AuthInfo.Fee.Granter),
 			Gas:              HexUint64(gas),
-			GasPrice:         0,
+			GasPrice:         HexUint64(amount / gas),
 			Hash:             common.Hash(blockTx.Block.Data.Txs[i]),
 			Input:            "0x" + hex.EncodeToString(msgs),
 			TransactionIndex: HexUint64(i),
 			Value:            HexUint64(amount),
-			Type:             0, // smart contract transaction
+			Type:             2,
 			ChainID:          1,
-			V:                0xbd,
+			V:                0xbd, //nolint:gomnd // seems like there is no V, R and S in cosmos public keys, need investigate in details
 			R:                "0xad3733df250c87556335ffe46c23e34dbaffde93097ef92f52c88632a40f0c75",
 			S:                "0x72caddc0371451a58de2ca6ab64e0f586ccdb9465ff54e1c82564940e89291e3",
 			StandardV:        0,
@@ -153,18 +164,60 @@ func ToEthTxReceipt(block *api.BlockWithTxs, tx *api.TxInfo) (*TxReceipt, error)
 		}
 	}
 
+	var amount int64
+
+	if len(tx.Tx.AuthInfo.Fee.Amount) > 0 {
+		amount, err = strconv.ParseInt(tx.Tx.AuthInfo.Fee.Amount[0].Amount, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse amount '%s': %w", tx.Tx.AuthInfo.Fee.Amount[0].Amount, err)
+		}
+	}
+
+	signer, err := signerAddress(api.Tx(*tx.Tx))
+	if err != nil {
+		return nil, fmt.Errorf("signer addr: %w", err)
+	}
+
 	return &TxReceipt{
 		BlockHash:         common.Hash(block.BlockID.Hash),
 		BlockNumber:       big.NewInt(num),
-		ContractAddress:   common.Address{},
+		ContractAddress:   signer,
 		CumulativeGasUsed: HexUint64(gas),
-		EffectiveGasPrice: 0,
-		From:              common.Address{},
+		EffectiveGasPrice: HexUint64(amount / gas),
+		From:              signer,
 		GasUsed:           HexUint64(gas),
 		Logs:              []TxLog{},
 		Status:            HexUint64(status),
-		To:                common.Address{},
+		To:                convertAddress(tx.Tx.AuthInfo.Fee.Granter),
 		TransactionHash:   common.Hash(txHash),
 		TransactionIndex:  HexUint64(txIndex),
+		Type:              2,
 	}, nil
+}
+
+func convertAddress(addr string) common.Address {
+	if addr != "" {
+		_, result, err := bech32.DecodeAndConvert(addr)
+		if err != nil {
+			return common.Address{}
+		}
+
+		return common.Address(result)
+	}
+
+	return common.Address{}
+}
+
+func signerAddress(tx api.Tx) (common.Address, error) {
+	publicKey, ok := tx.AuthInfo.SignerInfos[0].PublicKey.SignerInfoPublicKey["key"].(string)
+	if !ok {
+		return common.Address{}, ErrKeyNotFound
+	}
+
+	key, err := base64.StdEncoding.DecodeString(publicKey)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("parse public key: %w", err)
+	}
+
+	return common.Address(sdk.AccAddress(key).Bytes()), nil
 }

@@ -17,5 +17,5 @@ func (t *TxPool) Name() string {
 }
 
 func (t *TxPool) Content() (any, error) {
-	return nil, nil
+	return nil, nil //nolint:nilnil // empty implementation
 }

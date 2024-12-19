@@ -19,17 +19,25 @@ type Handler interface {
 type ProxyTo handlers.EthProxy
 
 type Server struct {
-	srv     *rpc.Server
-	ws      *WebsocketPool
-	addr    string
-	proxyTo ProxyTo
-	log     *zap.Logger
+	srv         *rpc.Server
+	ws          *WebsocketPool
+	addr        string
+	proxyTo     ProxyTo
+	log         *zap.Logger
+	handlersCfg *handlers.Config
 }
 
 func NewServer(cfg config.Config, proxyTo ProxyTo, log *zap.Logger) (*Server, error) {
+	server := &Server{
+		addr:        cfg.ListenAddr,
+		proxyTo:     proxyTo,
+		log:         log,
+		handlersCfg: cfg.HandlersConfig,
+	}
+
 	srv := rpc.NewServer()
 
-	for _, h := range registeredHandlers(proxyTo) {
+	for _, h := range server.registeredHandlers(proxyTo) {
 		if err := srv.RegisterName(h.Name(), h); err != nil {
 			return nil, fmt.Errorf("register '%s' handler: %w", h.Name(), err)
 		}
@@ -40,13 +48,10 @@ func NewServer(cfg config.Config, proxyTo ProxyTo, log *zap.Logger) (*Server, er
 		return nil, fmt.Errorf("websocket: %w", err)
 	}
 
-	return &Server{
-		srv:     srv,
-		ws:      ws,
-		addr:    cfg.ListenAddr,
-		proxyTo: proxyTo,
-		log:     log,
-	}, nil
+	server.srv = srv
+	server.ws = ws
+
+	return server, nil
 }
 
 func (s *Server) Run() error {
@@ -79,9 +84,9 @@ func (s *Server) Close(ctx context.Context) error {
 	return nil
 }
 
-func registeredHandlers(proxyTo ProxyTo) []Handler {
+func (s *Server) registeredHandlers(proxyTo ProxyTo) []Handler {
 	return []Handler{
-		handlers.NewEthServer(proxyTo),
+		handlers.NewEthServer(proxyTo, *s.handlersCfg),
 		handlers.NewTxPool(),
 		handlers.NewDebug(proxyTo),
 	}

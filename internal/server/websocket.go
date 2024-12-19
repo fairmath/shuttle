@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"math/rand/v2"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"sync"
@@ -136,7 +136,7 @@ func (wp *WebsocketPool) serveConnection(ctx context.Context, connection *websoc
 					}()
 				})
 
-				subscriptionID := rand.Uint32()
+				subscriptionID := rand.Uint32() //nolint:gosec //no reason for crypto rand
 
 				response := fmt.Sprintf(`{"jsonrpc":"2.0","result":"0x%x","id":%d}`, subscriptionID, msg.ID)
 				if err := connection.WriteMessage(websocket.TextMessage, []byte(response)); err != nil {
@@ -195,15 +195,14 @@ func (wp *WebsocketPool) startProxy(conn *websocket.Conn, id uint64, subscribers
 				Number:      big.NewInt(data.Block.Height),
 				Coinbase:    common.Address(data.Block.Header.ProposerAddress),
 				ParentHash:  common.Hash(data.Block.Header.LastCommitHash),
-				Nonce:       ethtypes.BlockNonce(binary.LittleEndian.AppendUint64([]byte{}, rand.Uint64())),
+				Nonce:       ethtypes.BlockNonce(binary.LittleEndian.AppendUint64([]byte{}, rand.Uint64())), //nolint:gosec,lll //no reason for crypto rand
 				MixDigest:   common.Hash(data.Block.Header.ConsensusHash),
 				ReceiptHash: common.Hash{},
 				UncleHash:   common.Hash{},
 				Root:        common.Hash(data.Block.Header.EvidenceHash),
 				Extra:       []byte{},
-				Difficulty:  big.NewInt(int64(0x1046bb7e3f8)),
-
-				Time: uint64(data.Block.Header.Time.Unix()),
+				Difficulty:  big.NewInt(int64(0x1046bb7e3f8)), //nolint:gomnd // need to translate from cosmos chain
+				Time:        uint64(data.Block.Header.Time.Unix()),
 			}
 
 			msg := JSONRpcMsg{
