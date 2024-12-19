@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/types/bech32"
@@ -18,40 +19,40 @@ import (
 	tservice "github.com/fairmath/shuttle/internal/client/tendermint/api/internal/txs/client/service"
 )
 
-type CosmosApi struct {
-	blocksApi bservice.ClientService
-	txsApi    tservice.ClientService
-	bankApi   bankService.ClientService
+type CosmosAPI struct {
+	blocksAPI bservice.ClientService
+	txsAPI    tservice.ClientService
+	bankAPI   bankService.ClientService
 }
 
-func NewCosmosApi(serverURL string) (*CosmosApi, error) {
-	parsedUrl, err := url.Parse(serverURL)
+func NewCosmosAPI(serverURL string) (*CosmosAPI, error) {
+	parsedURL, err := url.Parse(serverURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse url: '%s': %w", serverURL, err)
 	}
 
-	return &CosmosApi{
-		blocksApi: bclient.NewHTTPClientWithConfig(strfmt.Default, &bclient.TransportConfig{
-			Host:     parsedUrl.Host,
-			BasePath: parsedUrl.Path,
-			Schemes:  []string{parsedUrl.Scheme},
+	return &CosmosAPI{
+		blocksAPI: bclient.NewHTTPClientWithConfig(strfmt.Default, &bclient.TransportConfig{
+			Host:     parsedURL.Host,
+			BasePath: parsedURL.Path,
+			Schemes:  []string{parsedURL.Scheme},
 		}).Service,
-		txsApi: tclient.NewHTTPClientWithConfig(strfmt.Default, &tclient.TransportConfig{
-			Host:     parsedUrl.Host,
-			BasePath: parsedUrl.Path,
-			Schemes:  []string{parsedUrl.Scheme},
+		txsAPI: tclient.NewHTTPClientWithConfig(strfmt.Default, &tclient.TransportConfig{
+			Host:     parsedURL.Host,
+			BasePath: parsedURL.Path,
+			Schemes:  []string{parsedURL.Scheme},
 		}).Service,
-		bankApi: bankClient.NewHTTPClientWithConfig(strfmt.Default, &bankClient.TransportConfig{
-			Host:     parsedUrl.Host,
-			BasePath: parsedUrl.Path,
-			Schemes:  []string{parsedUrl.Scheme},
+		bankAPI: bankClient.NewHTTPClientWithConfig(strfmt.Default, &bankClient.TransportConfig{
+			Host:     parsedURL.Host,
+			BasePath: parsedURL.Path,
+			Schemes:  []string{parsedURL.Scheme},
 		}).Query,
 	}, nil
 }
 
-func (t *CosmosApi) GetBlockByHeight(height string) (*Block, error) {
+func (t *CosmosAPI) GetBlockByHeight(height string) (*Block, error) {
 	if height == "latest" {
-		response, err := t.blocksApi.ServiceGetLatestBlock(bservice.NewServiceGetLatestBlockParams())
+		response, err := t.blocksAPI.ServiceGetLatestBlock(bservice.NewServiceGetLatestBlockParams())
 		if err != nil {
 			return nil, fmt.Errorf("get %s block: %w", height, err)
 		}
@@ -62,10 +63,10 @@ func (t *CosmosApi) GetBlockByHeight(height string) (*Block, error) {
 	if strings.HasPrefix(height, "0x") {
 		var n uint64
 		_, _ = fmt.Sscanf(height, "0x%x", &n)
-		height = fmt.Sprintf("%d", n)
+		height = strconv.FormatUint(n, 10)
 	}
 
-	response, err := t.blocksApi.ServiceGetBlockByHeight(bservice.NewServiceGetBlockByHeightParams().WithHeight(height))
+	response, err := t.blocksAPI.ServiceGetBlockByHeight(bservice.NewServiceGetBlockByHeightParams().WithHeight(height))
 	if err != nil {
 		return nil, fmt.Errorf("get %s block: %w", height, err)
 	}
@@ -73,8 +74,8 @@ func (t *CosmosApi) GetBlockByHeight(height string) (*Block, error) {
 	return (*Block)(response.Payload), nil
 }
 
-func (t *CosmosApi) GetBlockTxsByHeight(height string) (*BlockWithTxs, error) {
-	res, err := t.txsApi.ServiceGetBlockWithTxs(tservice.NewServiceGetBlockWithTxsParams().WithHeight(height))
+func (t *CosmosAPI) GetBlockTxsByHeight(height string) (*BlockWithTxs, error) {
+	res, err := t.txsAPI.ServiceGetBlockWithTxs(tservice.NewServiceGetBlockWithTxsParams().WithHeight(height))
 	if err != nil {
 		return nil, fmt.Errorf("get block %s txs: %w", height, err)
 	}
@@ -93,8 +94,8 @@ func (t *CosmosApi) GetBlockTxsByHeight(height string) (*BlockWithTxs, error) {
 	return blockTxs, nil
 }
 
-func (t *CosmosApi) GetTx(hash string) (*TxInfo, error) {
-	res, err := t.txsApi.ServiceGetTx(tservice.NewServiceGetTxParams().WithHash(hash))
+func (t *CosmosAPI) GetTx(hash string) (*TxInfo, error) {
+	res, err := t.txsAPI.ServiceGetTx(tservice.NewServiceGetTxParams().WithHash(hash))
 	if err != nil {
 		return nil, fmt.Errorf("get tx: %w", err)
 	}
@@ -102,13 +103,13 @@ func (t *CosmosApi) GetTx(hash string) (*TxInfo, error) {
 	return (*TxInfo)(res.Payload), nil
 }
 
-func (t *CosmosApi) GetBalance(prefix, denom string, addr strfmt.Base64) (string, error) {
+func (t *CosmosAPI) GetBalance(prefix, denom string, addr strfmt.Base64) (string, error) {
 	strAddr, err := bech32.ConvertAndEncode(prefix, addr)
 	if err != nil {
 		return "", fmt.Errorf("decode addr: '0x%s'", hex.EncodeToString(addr))
 	}
 
-	res, err := t.bankApi.QueryBalance(
+	res, err := t.bankAPI.QueryBalance(
 		bankService.NewQueryBalanceParams().
 			WithAddress(strAddr).
 			WithDenom(&denom),

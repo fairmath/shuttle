@@ -42,7 +42,7 @@ all: generate lint test build
 
 .PHONY: release 
 release: $(IN_DOCKER_TARGET)
-	docker build -f ./Dockerfile.release -t yashalabinc/hellman:local .
+	docker build -f ./Dockerfile.release -t yashalabinc/shuttle:local .
 
 fail:
 	@echo "This target should be run outside of the container"

@@ -9,4 +9,5 @@ type (
 	Block        blockModel.CosmosBlock
 	BlockWithTxs txModel.BlockWithTxs
 	TxInfo       txModel.GetTxResponse
+	Tx           txModel.Tx
 )

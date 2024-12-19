@@ -5,18 +5,18 @@ import (
 	"log"
 	"os"
 
+	"github.com/urfave/cli/v2"
+	"go.uber.org/zap"
+
 	"github.com/fairmath/shuttle/cmd/config"
 	"github.com/fairmath/shuttle/internal/client/tendermint/api"
 	"github.com/fairmath/shuttle/internal/server"
-
-	"github.com/urfave/cli/v2"
-	"go.uber.org/zap"
 )
 
 func runServer(cfg config.Config) error {
 	log := config.LoadLogger(cfg.LogLevel)
 
-	cl, err := api.NewCosmosApi(cfg.HTTPTendermintURL)
+	cl, err := api.NewCosmosAPI(cfg.HTTPTendermintURL)
 	if err != nil {
 		return fmt.Errorf("connect to tendermint api: %w", err)
 	}

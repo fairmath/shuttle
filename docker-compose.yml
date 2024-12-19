@@ -1,9 +1,8 @@
 services:
   dev:
-    user: "1000:1000"
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     environment:
       - IN_DOCKER_TARGET=fail
     volumes:
@@ -12,15 +11,17 @@ services:
         source: .
         target: /develop
 
-  ci:
+  proxy:
     build:
       context: .
       dockerfile: Dockerfile
-    entrypoint: ["make", "lint", "test", "build"]
+    container_name: "shuttle-proxy"
+    ports:
+      - "9182:9182"
     environment:
-      - IN_DOCKER_TARGET=fail
-    volumes:
-      - type: bind
-        consistency: delegated
-        source: .
-        target: /develop
+      HTTP_TENDERMINT_URL: https://cosmos-rest.publicnode.com
+      WS_TENDERMINT_URL: https://cosmos-rest.publicnode.com/websocket
+      HTTP_LISTEN_ADDR: 0.0.0.0:9182
+      LOG_LEVEL: info
+      BECH_PREFIX: cosmos
+      COIN_DENOM: uatom

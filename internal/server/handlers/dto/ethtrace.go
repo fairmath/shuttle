@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/fairmath/shuttle/internal/client/tendermint/api"
 )
 
