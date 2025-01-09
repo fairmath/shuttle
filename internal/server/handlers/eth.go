@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/go-openapi/strfmt"
@@ -39,6 +40,22 @@ func NewEthServer(proxyTo EthProxy, cfg Config) *EthServer {
 
 func (e *EthServer) Name() string {
 	return e.name
+}
+
+func (e *EthServer) BlockNumber() (any, error) {
+	const latest = "latest"
+
+	b, err := e.target.GetBlockByHeight(latest)
+	if err != nil {
+		return nil, fmt.Errorf("get block '%s': %w", latest, err)
+	}
+
+	num, err := strconv.ParseInt(b.Block.Header.Height, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse block number: %w", err)
+	}
+
+	return "0x" + strconv.FormatInt(num, 16), nil
 }
 
 func (e *EthServer) GetBlockByNumber(height string, fullTransactions bool) (any, error) {
