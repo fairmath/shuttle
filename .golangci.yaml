@@ -1,5 +1,6 @@
 run:
   deadline: 15m
+  timeout: 15m
   concurrency: 4
   issues-exit-code: 1
 
@@ -22,18 +23,6 @@ linters:
 
     # Seems that there is no need to deny the use of any packages
     - depguard
-
-    # Deprecated:
-    - deadcode # Replaced by unused
-    - exhaustivestruct # Replaced by exhaustruct
-    - golint # Replaced by revive
-    - maligned # Replaced by govet 'fieldalignment'
-    - nosnakecase # Replaced by revive
-    - scopelint # Replaced by exportloopref
-    - structcheck # Replaced by unused
-    - varcheck # Replaced by unused
-    - ifshort # Repository was archived by the owner
-    - interfacer # Repository was archived by the owner
 
 linters-settings:
   maligned:
@@ -79,7 +68,6 @@ linters-settings:
       - error
       - empty
       - stdlib
-      - v1.JobInterface
 
   tagliatelle:
     # Check the struct tag name case.
@@ -119,12 +107,13 @@ linters-settings:
       - .WithStack(
       - (context.Context).Err()
 
-  gomnd:
+  mnd:
     # List of numbers to exclude from analysis.
     # The numbers should be written as string.
     # Values always ignored: "1", "1.0", "0" and "0.0"
     # Default: []
     ignored-numbers:
+      - '1'
       - '2'
       - '0o400'
       - '0o444'

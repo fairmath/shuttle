@@ -113,15 +113,15 @@ func ToEthTxs(blockTx *api.BlockWithTxs) ([]Tx, error) {
 			Creates:          signer,
 			From:             signer,
 			To:               convertAddress(tx.AuthInfo.Fee.Granter),
-			Gas:              HexUint64(gas),
-			GasPrice:         HexUint64(amount / gas),
+			Gas:              HexUint64(gas),          //nolint:gosec // always positive or 0
+			GasPrice:         HexUint64(amount / gas), //nolint:gosec // always positive or 0
 			Hash:             common.Hash(blockTx.Block.Data.Txs[i]),
 			Input:            "0x" + hex.EncodeToString(msgs),
-			TransactionIndex: HexUint64(i),
-			Value:            HexUint64(amount),
+			TransactionIndex: HexUint64(i),      //nolint:gosec // always positive or 0
+			Value:            HexUint64(amount), //nolint:gosec // always positive or 0
 			Type:             2,
 			ChainID:          1,
-			V:                0xbd, //nolint:gomnd // seems like there is no V, R and S in cosmos public keys, need investigate in details
+			V:                0xbd, //nolint:mnd // seems like there is no V, R and S in cosmos public keys, need investigate in details
 			R:                "0xad3733df250c87556335ffe46c23e34dbaffde93097ef92f52c88632a40f0c75",
 			S:                "0x72caddc0371451a58de2ca6ab64e0f586ccdb9465ff54e1c82564940e89291e3",
 			StandardV:        0,
@@ -158,7 +158,7 @@ func ToEthTxReceipt(block *api.BlockWithTxs, tx *api.TxInfo) (*TxReceipt, error)
 
 	for i, t := range block.Block.Data.Txs {
 		if slices.Equal(t, txHash) {
-			txIndex = uint64(i)
+			txIndex = uint64(i) //nolint:gosec // counter
 
 			break
 		}
@@ -182,12 +182,12 @@ func ToEthTxReceipt(block *api.BlockWithTxs, tx *api.TxInfo) (*TxReceipt, error)
 		BlockHash:         common.Hash(block.BlockID.Hash),
 		BlockNumber:       big.NewInt(num),
 		ContractAddress:   signer,
-		CumulativeGasUsed: HexUint64(gas),
-		EffectiveGasPrice: HexUint64(amount / gas),
+		CumulativeGasUsed: HexUint64(gas),          //nolint:gosec // always positive or 0
+		EffectiveGasPrice: HexUint64(amount / gas), //nolint:gosec // always positive or 0
 		From:              signer,
-		GasUsed:           HexUint64(gas),
+		GasUsed:           HexUint64(gas), //nolint:gosec // always positive or 0
 		Logs:              []TxLog{},
-		Status:            HexUint64(status),
+		Status:            HexUint64(status), //nolint:gosec // always positive or 0
 		To:                convertAddress(tx.Tx.AuthInfo.Fee.Granter),
 		TransactionHash:   common.Hash(txHash),
 		TransactionIndex:  HexUint64(txIndex),

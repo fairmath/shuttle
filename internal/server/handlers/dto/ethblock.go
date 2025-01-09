@@ -40,7 +40,7 @@ type Header struct { //nolint:tagliatelle // ethereum serialized json
 	Nonce           ethtypes.BlockNonce `json:"nonce"`
 	Size            HexUint64           `json:"size"`
 	TotalDifficulty *big.Int            `json:"total_difficulty"`
-	Transactions    []Tx                `json:"transactions,omitempty"`
+	Transactions    []any               `json:"transactions,omitempty"`
 	Uncles          []string            `json:"uncles"`
 }
 
@@ -63,19 +63,19 @@ func FromCosmosBlock(block *api.Block) (Header, error) {
 		ReceiptHash:     common.Hash(block.Block.Header.DataHash),
 		UncleHash:       common.Hash(block.Block.Header.NextValidatorsHash),
 		Root:            common.Hash(block.Block.Header.EvidenceHash),
-		TxHash:          common.Hash{},
+		TxHash:          firstTxHash(block.Block.Data.Txs),
 		Extra:           []byte{},
-		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)), //nolint:gomnd // need to translate from cosmos chain
-		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)), //nolint:gomnd // need to translate from cosmos chain
+		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)), //nolint:mnd // need to translate from cosmos chain
+		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)), //nolint:mnd // need to translate from cosmos chain
 		Size:            HexUint64(blockSz),
 		Transactions:    nil,
 		Uncles:          []string{},
 
-		Time: HexUint64(time.Time(block.Block.Header.Time).Unix()),
+		Time: HexUint64(time.Time(block.Block.Header.Time).Unix()), //nolint:gosec // time always greater than zero
 	}, nil
 }
 
-func FromCosmosBlockWithTxs(block *api.BlockWithTxs) (Header, error) {
+func FromCosmosBlockWithTxs(block *api.BlockWithTxs, fullTransactions bool) (Header, error) {
 	num, err := strconv.ParseInt(block.Block.Header.Height, 10, 64)
 	if err != nil {
 		return Header{}, fmt.Errorf("height conversion '%s' -> int64: %w", block.Block.Header.Height, err)
@@ -84,12 +84,7 @@ func FromCosmosBlockWithTxs(block *api.BlockWithTxs) (Header, error) {
 	blockBin, _ := block.Block.MarshalBinary()
 	blockSz := len(blockBin)
 
-	txs, err := ToEthTxs(block)
-	if err != nil {
-		return Header{}, fmt.Errorf("tx convert: %w", err)
-	}
-
-	return Header{
+	res := Header{
 		Hash:            common.Hash(block.BlockID.Hash),
 		Number:          big.NewInt(num),
 		Coinbase:        common.Address(block.Block.Header.ProposerAddress),
@@ -101,14 +96,31 @@ func FromCosmosBlockWithTxs(block *api.BlockWithTxs) (Header, error) {
 		Root:            common.Hash(block.Block.Header.EvidenceHash),
 		TxHash:          firstTxHash(block.Block.Data.Txs),
 		Extra:           []byte{},
-		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)), //nolint:gomnd // need to translate from cosmos chain
-		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)), //nolint:gomnd // need to translate from cosmos chain
+		Difficulty:      big.NewInt(int64(0x1046bb7e3f8)), //nolint:mnd // need to translate from cosmos chain
+		TotalDifficulty: big.NewInt(int64(0x1046bb7e3f8)), //nolint:mnd // need to translate from cosmos chain
 		Size:            HexUint64(blockSz),
-		Transactions:    txs,
 		Uncles:          []string{},
+		Time:            HexUint64(time.Time(block.Block.Header.Time).Unix()), //nolint:gosec // time always greater than zero
+	}
 
-		Time: HexUint64(time.Time(block.Block.Header.Time).Unix()),
-	}, nil
+	txs, err := ToEthTxs(block)
+	if err != nil {
+		return Header{}, fmt.Errorf("tx convert: %w", err)
+	}
+
+	rtxs := make([]any, 0, len(txs))
+
+	for _, tx := range txs {
+		if fullTransactions {
+			rtxs = append(rtxs, tx)
+		} else {
+			rtxs = append(rtxs, tx.Hash)
+		}
+	}
+
+	res.Transactions = rtxs
+
+	return res, nil
 }
 
 func firstTxHash(data []strfmt.Base64) common.Hash {

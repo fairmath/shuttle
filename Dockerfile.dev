@@ -1,6 +1,6 @@
 FROM golang:1.23.3-alpine3.20 as builder
 
-ARG GOLANGCI_LINT_VERSION=1.55.2
+ARG GOLANGCI_LINT_VERSION=1.62.2
 
 WORKDIR /develop
 

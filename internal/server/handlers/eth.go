@@ -41,7 +41,7 @@ func (e *EthServer) Name() string {
 	return e.name
 }
 
-func (e *EthServer) GetBlockByNumber(height string, _ bool) (any, error) {
+func (e *EthServer) GetBlockByNumber(height string, fullTransactions bool) (any, error) {
 	var (
 		block *api.BlockWithTxs
 		err   error
@@ -60,7 +60,7 @@ func (e *EthServer) GetBlockByNumber(height string, _ bool) (any, error) {
 		return nil, fmt.Errorf("get %s txs: %w", height, err)
 	}
 
-	ethBlock, err := dto.FromCosmosBlockWithTxs(block)
+	ethBlock, err := dto.FromCosmosBlockWithTxs(block, fullTransactions)
 	if err != nil {
 		return nil, fmt.Errorf("block conversion: %w", err)
 	}
@@ -85,11 +85,11 @@ func (e *EthServer) GetBalance(addr string, _ string) (string, error) {
 
 	value := big.NewInt(0)
 
-	if value, ok = value.SetString(amount, 10); !ok { //nolint:gomnd // base
+	if value, ok = value.SetString(amount, 10); !ok { //nolint:mnd // base
 		return "", fmt.Errorf("parse balance: %w", err)
 	}
 
-	return "0x" + value.Text(16), nil //nolint:gomnd // base
+	return "0x" + value.Text(16), nil //nolint:mnd // base
 }
 
 func (e *EthServer) GetTransactionReceipt(hash string) (any, error) {

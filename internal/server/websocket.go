@@ -67,7 +67,7 @@ func NewWebsocketPool(tendermintWS string, log *zap.Logger) (*WebsocketPool, err
 
 func (wp *WebsocketPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
+		CheckOrigin: func(_ *http.Request) bool {
 			return true
 		},
 	}
@@ -93,6 +93,7 @@ func (wp *WebsocketPool) serveConnection(ctx context.Context, connection *websoc
 	subscribers := make(chan uint32)
 	proxyDone := make(chan struct{})
 
+	//nolint:contextcheck // fix after refactoring
 	go func() {
 		defer close(done)
 
@@ -201,8 +202,8 @@ func (wp *WebsocketPool) startProxy(conn *websocket.Conn, id uint64, subscribers
 				UncleHash:   common.Hash{},
 				Root:        common.Hash(data.Block.Header.EvidenceHash),
 				Extra:       []byte{},
-				Difficulty:  big.NewInt(int64(0x1046bb7e3f8)), //nolint:gomnd // need to translate from cosmos chain
-				Time:        uint64(data.Block.Header.Time.Unix()),
+				Difficulty:  big.NewInt(int64(0x1046bb7e3f8)),      //nolint:mnd // need to translate from cosmos chain
+				Time:        uint64(data.Block.Header.Time.Unix()), //nolint:gosec // always positive or 0
 			}
 
 			msg := JSONRpcMsg{
