@@ -133,7 +133,7 @@ func ToEthTxs(blockTx *api.BlockWithTxs) ([]Tx, error) {
 }
 
 func ToEthTxReceipt(block *api.BlockWithTxs, tx *api.TxInfo) (*TxReceipt, error) {
-	num, err := strconv.ParseInt(block.Block.Header.Height, 10, 64)
+	num, err := strconv.ParseUint(block.Block.Header.Height, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("height %s convert: %w", block.Block.Header.Height, err)
 	}
