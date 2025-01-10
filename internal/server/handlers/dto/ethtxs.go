@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 	"slices"
 	"strconv"
 
@@ -23,7 +22,7 @@ type TxLog struct { //nolint:tagliatelle // ethereum serialized json
 	Address          common.Address `json:"address"`
 	Topics           []common.Hash  `json:"topics"`
 	Data             string         `json:"data"`
-	BlockNumber      *big.Int       `json:"blockNumber"`
+	BlockNumber      HexUint64      `json:"blockNumber"`
 	TransactionHash  common.Hash    `json:"transactionHash"`
 	TransactionIndex HexUint64      `json:"transactionIndex"`
 	BlockHash        common.Hash    `json:"blockHash"`
@@ -33,7 +32,7 @@ type TxLog struct { //nolint:tagliatelle // ethereum serialized json
 
 type TxReceipt struct { //nolint:tagliatelle // ethereum serialized json
 	BlockHash         common.Hash    `json:"blockHash"`
-	BlockNumber       *big.Int       `json:"blockNumber"`
+	BlockNumber       HexUint64      `json:"blockNumber"`
 	ContractAddress   common.Address `json:"contractAddress"`
 	CumulativeGasUsed HexUint64      `json:"cumulativeGasUsed"`
 	EffectiveGasPrice HexUint64      `json:"effectiveGasPrice"`
@@ -50,7 +49,7 @@ type TxReceipt struct { //nolint:tagliatelle // ethereum serialized json
 
 type Tx struct { //nolint:tagliatelle // ethereum serialized json
 	BlockHash        common.Hash    `json:"blockHash"`
-	BlockNumber      *big.Int       `json:"blockNumber"`
+	BlockNumber      HexUint64      `json:"blockNumber"`
 	Creates          common.Address `json:"creates"`
 	From             common.Address `json:"from"`
 	Gas              HexUint64      `json:"gas"`
@@ -72,7 +71,7 @@ type Tx struct { //nolint:tagliatelle // ethereum serialized json
 }
 
 func ToEthTxs(blockTx *api.BlockWithTxs) ([]Tx, error) {
-	num, err := strconv.ParseInt(blockTx.Block.Header.Height, 10, 64)
+	num, err := strconv.ParseUint(blockTx.Block.Header.Height, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("height %s convert: %w", blockTx.Block.Header.Height, err)
 	}
@@ -109,19 +108,19 @@ func ToEthTxs(blockTx *api.BlockWithTxs) ([]Tx, error) {
 		pk, _ := tx.AuthInfo.SignerInfos[0].PublicKey.MarshalBinary()
 		rtx = append(rtx, Tx{
 			BlockHash:        common.Hash(blockTx.BlockID.Hash),
-			BlockNumber:      big.NewInt(num),
+			BlockNumber:      HexUint64(num),
 			Creates:          signer,
 			From:             signer,
 			To:               convertAddress(tx.AuthInfo.Fee.Granter),
-			Gas:              HexUint64(gas),
-			GasPrice:         HexUint64(amount / gas),
+			Gas:              HexUint64(gas),          //nolint:gosec // always positive or 0
+			GasPrice:         HexUint64(amount / gas), //nolint:gosec // always positive or 0
 			Hash:             common.Hash(blockTx.Block.Data.Txs[i]),
 			Input:            "0x" + hex.EncodeToString(msgs),
-			TransactionIndex: HexUint64(i),
-			Value:            HexUint64(amount),
+			TransactionIndex: HexUint64(i),      //nolint:gosec // always positive or 0
+			Value:            HexUint64(amount), //nolint:gosec // always positive or 0
 			Type:             2,
 			ChainID:          1,
-			V:                0xbd, //nolint:gomnd // seems like there is no V, R and S in cosmos public keys, need investigate in details
+			V:                0xbd, //nolint:mnd // seems like there is no V, R and S in cosmos public keys, need investigate in details
 			R:                "0xad3733df250c87556335ffe46c23e34dbaffde93097ef92f52c88632a40f0c75",
 			S:                "0x72caddc0371451a58de2ca6ab64e0f586ccdb9465ff54e1c82564940e89291e3",
 			StandardV:        0,
@@ -134,7 +133,7 @@ func ToEthTxs(blockTx *api.BlockWithTxs) ([]Tx, error) {
 }
 
 func ToEthTxReceipt(block *api.BlockWithTxs, tx *api.TxInfo) (*TxReceipt, error) {
-	num, err := strconv.ParseInt(block.Block.Header.Height, 10, 64)
+	num, err := strconv.ParseUint(block.Block.Header.Height, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("height %s convert: %w", block.Block.Header.Height, err)
 	}
@@ -158,7 +157,7 @@ func ToEthTxReceipt(block *api.BlockWithTxs, tx *api.TxInfo) (*TxReceipt, error)
 
 	for i, t := range block.Block.Data.Txs {
 		if slices.Equal(t, txHash) {
-			txIndex = uint64(i)
+			txIndex = uint64(i) //nolint:gosec // counter
 
 			break
 		}
@@ -180,14 +179,14 @@ func ToEthTxReceipt(block *api.BlockWithTxs, tx *api.TxInfo) (*TxReceipt, error)
 
 	return &TxReceipt{
 		BlockHash:         common.Hash(block.BlockID.Hash),
-		BlockNumber:       big.NewInt(num),
+		BlockNumber:       HexUint64(num),
 		ContractAddress:   signer,
-		CumulativeGasUsed: HexUint64(gas),
-		EffectiveGasPrice: HexUint64(amount / gas),
+		CumulativeGasUsed: HexUint64(gas),          //nolint:gosec // always positive or 0
+		EffectiveGasPrice: HexUint64(amount / gas), //nolint:gosec // always positive or 0
 		From:              signer,
-		GasUsed:           HexUint64(gas),
+		GasUsed:           HexUint64(gas), //nolint:gosec // always positive or 0
 		Logs:              []TxLog{},
-		Status:            HexUint64(status),
+		Status:            HexUint64(status), //nolint:gosec // always positive or 0
 		To:                convertAddress(tx.Tx.AuthInfo.Fee.Granter),
 		TransactionHash:   common.Hash(txHash),
 		TransactionIndex:  HexUint64(txIndex),

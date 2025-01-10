@@ -3,8 +3,7 @@
 
 SWAGGER_API = internal/client/tendermint/api/internal/txs \
 	internal/client/tendermint/api/internal/blocks \
-	internal/client/tendermint/api/internal/bank \
-	internal/client/tendermint/api/internal/auth
+	internal/client/tendermint/api/internal/bank
 
 .PHONY: view
 view:

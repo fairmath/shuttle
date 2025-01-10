@@ -1,8 +1,6 @@
 module github.com/fairmath/shuttle
 
-go 1.22.7
-
-toolchain go1.22.9
+go 1.23
 
 require (
 	github.com/cometbft/cometbft v0.38.15
