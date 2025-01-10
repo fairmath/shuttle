@@ -213,3 +213,42 @@ func (e *EthServer) GetTransactionByBlockNumberAndIndex(height, txIndex string) 
 
 	return nil, errors.New("tx not found")
 }
+
+func (e *EthServer) GetTransactionByBlockHashAndIndex(hash, txIndex string) (any, error) {
+	trimIndex, _ := strings.CutPrefix(txIndex, "0x")
+
+	txi, err := strconv.ParseInt(txIndex, 16, 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse index: %s: %w", trimIndex, err)
+	}
+
+	trimHash, _ := strings.CutPrefix(hash, "0x")
+
+	h, err := hex.DecodeString(trimHash)
+	if err != nil {
+		return nil, fmt.Errorf("parse hash: %s: %w", trimHash, err)
+	}
+
+	cosmosBlock, err := e.target.BlockByHash(context.Background(), h)
+	if err != nil {
+		return nil, fmt.Errorf("get block by hash: %w", err)
+	}
+
+	block, err := e.target.GetBlockTxsByHeight(cosmosBlock.Block.Header.Height)
+	if err != nil {
+		return nil, fmt.Errorf("get tx by height: %s: %w", cosmosBlock.Block.Header.Height, err)
+	}
+
+	txs, err := dto.ToEthTxs(block)
+	if err != nil {
+		return nil, fmt.Errorf("eth tx converter: %w", err)
+	}
+
+	for i, t := range txs {
+		if int64(i) == txi {
+			return t, nil
+		}
+	}
+
+	return nil, errors.New("tx not found")
+}
