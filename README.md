@@ -16,7 +16,7 @@ The are several settings for the proxy that should be installed thorugh environm
 
 ## Tools
 * Go 1.23.3
-* golangci-lint 1.55.2
+* golangci-lint 1.62.2
 * [Swagger](https://api.github.com/repos/go-swagger/go-swagger/releases/latest)
 * GNU Make
 
