@@ -21,6 +21,7 @@ services:
     environment:
       HTTP_TENDERMINT_URL: https://cosmos-rest.publicnode.com
       WS_TENDERMINT_URL: https://cosmos-rest.publicnode.com/websocket
+      RPC_TENDERMINT_URL: https://cosmos-rpc.publicnode.com:443
       HTTP_LISTEN_ADDR: 0.0.0.0:9182
       LOG_LEVEL: info
       BECH_PREFIX: cosmos

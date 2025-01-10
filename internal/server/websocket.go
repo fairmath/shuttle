@@ -22,6 +22,7 @@ import (
 
 const ETHSubscribeMethod = "eth_subscribe"
 
+// todo: use tendermint ws connection instead of WebsocketPool(see client/tendermint/api/internal/tendermint.go)
 type WebsocketPool struct {
 	log          *zap.Logger
 	tendermintWS string

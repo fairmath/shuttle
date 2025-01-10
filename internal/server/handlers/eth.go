@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -20,6 +22,8 @@ type EthProxy interface {
 	GetBlockTxsByHeight(height string) (*api.BlockWithTxs, error)
 	GetBalance(prefix, denom string, addr strfmt.Base64) (string, error)
 	GetTx(hash string) (*api.TxInfo, error)
+
+	BlockByHash(ctx context.Context, hash []byte) (api.Block, error)
 }
 
 type EthServer struct {
@@ -125,6 +129,59 @@ func (e *EthServer) GetTransactionReceipt(hash string) (any, error) {
 	res, err := dto.ToEthTxReceipt(block, txInfo)
 	if err != nil {
 		return nil, fmt.Errorf("eth receipt converter: %w", err)
+	}
+
+	return res, nil
+}
+
+func (e *EthServer) GetTransactionByHash(hash string) (any, error) {
+	trimHash, _ := strings.CutPrefix(hash, "0x")
+
+	txInfo, err := e.target.GetTx(trimHash)
+	if err != nil {
+		return nil, fmt.Errorf("get tx by hash: %w", err)
+	}
+
+	block, err := e.target.GetBlockTxsByHeight(txInfo.TxResponse.Height)
+	if err != nil {
+		return nil, fmt.Errorf("get tx by height: %s: %w", txInfo.TxResponse.Height, err)
+	}
+
+	txs, err := dto.ToEthTxs(block)
+	if err != nil {
+		return nil, fmt.Errorf("eth tx converter: %w", err)
+	}
+
+	for _, t := range txs {
+		if t.Hash.String() == hash {
+			return t, nil
+		}
+	}
+
+	return nil, errors.New("not found")
+}
+
+func (e *EthServer) GetBlockByHash(hash string, fullTransactions bool) (any, error) {
+	trimHash, _ := strings.CutPrefix(hash, "0x")
+
+	h, err := hex.DecodeString(trimHash)
+	if err != nil {
+		return nil, fmt.Errorf("parse hash: %s: %w", trimHash, err)
+	}
+
+	cosmosBlock, err := e.target.BlockByHash(context.Background(), h)
+	if err != nil {
+		return nil, fmt.Errorf("get block by hash: %w", err)
+	}
+
+	num, err := strconv.ParseUint(cosmosBlock.Block.Header.Height, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse block height: %w", err)
+	}
+
+	res, err := e.GetBlockByNumber("0x"+strconv.FormatUint(num, 16), fullTransactions)
+	if err != nil {
+		return nil, fmt.Errorf("block by num: %w", err)
 	}
 
 	return res, nil

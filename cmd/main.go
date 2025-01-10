@@ -16,7 +16,7 @@ import (
 func runServer(cfg config.Config) error {
 	log := config.LoadLogger(cfg.LogLevel)
 
-	cl, err := api.NewCosmosAPI(cfg.HTTPTendermintURL)
+	cl, err := api.NewCosmosAPI(cfg.HTTPTendermintURL, cfg.RPCTendermintURL, cfg.WSTendermintURL)
 	if err != nil {
 		return fmt.Errorf("connect to tendermint api: %w", err)
 	}

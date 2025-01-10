@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -23,12 +24,19 @@ type CosmosAPI struct {
 	blocksAPI bservice.ClientService
 	txsAPI    tservice.ClientService
 	bankAPI   bankService.ClientService
+
+	tendermintRPC *TendermintRPC
 }
 
-func NewCosmosAPI(serverURL string) (*CosmosAPI, error) {
-	parsedURL, err := url.Parse(serverURL)
+func NewCosmosAPI(httpServerURL, rpcServerURL, wsURL string) (*CosmosAPI, error) {
+	parsedURL, err := url.Parse(httpServerURL)
 	if err != nil {
-		return nil, fmt.Errorf("parse url: '%s': %w", serverURL, err)
+		return nil, fmt.Errorf("parse url: '%s': %w", httpServerURL, err)
+	}
+
+	tendermintRPC, err := NewTendermintRPC(rpcServerURL, wsURL)
+	if err != nil {
+		return nil, fmt.Errorf("create tendermint rpc connection: %w", err)
 	}
 
 	return &CosmosAPI{
@@ -47,6 +55,7 @@ func NewCosmosAPI(serverURL string) (*CosmosAPI, error) {
 			BasePath: parsedURL.Path,
 			Schemes:  []string{parsedURL.Scheme},
 		}).Query,
+		tendermintRPC: tendermintRPC,
 	}, nil
 }
 
@@ -119,4 +128,13 @@ func (t *CosmosAPI) GetBalance(prefix, denom string, addr strfmt.Base64) (string
 	}
 
 	return res.Payload.Balance.Amount, nil
+}
+
+func (t *CosmosAPI) BlockByHash(ctx context.Context, hash []byte) (Block, error) {
+	res, err := t.tendermintRPC.BlockByHash(ctx, hash)
+	if err != nil {
+		return Block{}, fmt.Errorf("cosmos api: block by hash: %w", err)
+	}
+
+	return res, nil
 }

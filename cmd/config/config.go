@@ -9,6 +9,7 @@ import (
 type Config struct {
 	HTTPTendermintURL string
 	WSTendermintURL   string
+	RPCTendermintURL  string
 	ListenAddr        string
 	LogLevel          string
 	HandlersConfig    *handlers.Config
@@ -37,6 +38,14 @@ func (c *Config) BuildFlags() []cli.Flag {
 			Required:    true,
 			Value:       "http://localhost:1317",
 			EnvVars:     []string{"HTTP_TENDERMINT_URL"},
+		},
+		&cli.StringFlag{
+			Name:        "rpc-tendermint-url",
+			Usage:       "set up a Tendermint RPC node url",
+			Destination: &c.RPCTendermintURL,
+			Required:    true,
+			Value:       "http://localhost",
+			EnvVars:     []string{"RPC_TENDERMINT_URL"},
 		},
 		&cli.StringFlag{
 			Name:        "http-listen-addr",
