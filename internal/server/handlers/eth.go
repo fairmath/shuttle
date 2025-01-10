@@ -186,3 +186,30 @@ func (e *EthServer) GetBlockByHash(hash string, fullTransactions bool) (any, err
 
 	return res, nil
 }
+
+func (e *EthServer) GetTransactionByBlockNumberAndIndex(height, txIndex string) (any, error) {
+	trimIndex, _ := strings.CutPrefix(txIndex, "0x")
+
+	txi, err := strconv.ParseInt(txIndex, 16, 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse index: %s: %w", trimIndex, err)
+	}
+
+	block, err := e.target.GetBlockTxsByHeight(height)
+	if err != nil {
+		return nil, fmt.Errorf("get tx by height: %s: %w", height, err)
+	}
+
+	txs, err := dto.ToEthTxs(block)
+	if err != nil {
+		return nil, fmt.Errorf("eth tx converter: %w", err)
+	}
+
+	for i, t := range txs {
+		if int64(i) == txi {
+			return t, nil
+		}
+	}
+
+	return nil, errors.New("tx not found")
+}

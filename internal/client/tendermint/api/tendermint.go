@@ -6,8 +6,9 @@ import (
 	"strconv"
 
 	"github.com/cometbft/cometbft/rpc/client/http"
-	"github.com/fairmath/shuttle/internal/client/tendermint/api/internal/blocks/models"
 	"github.com/go-openapi/strfmt"
+
+	"github.com/fairmath/shuttle/internal/client/tendermint/api/internal/blocks/models"
 )
 
 type TendermintRPC struct {
