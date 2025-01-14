@@ -1,5 +1,5 @@
 # SHUTTLE
-SHUTTLE is proxy server to translate Ethereum JSON-RPC requests to CosmosSDK based chains. Was developed to use [Blockscout](https://github.com/blockscout/blockscout) block explorer for CosmosSDK-based chains.
+SHUTTLE is a proxy server that enables the use of [Blockscout](https://github.com/blockscout/blockscout) block explorer for Cosmos-based chains.
 
 ## Description
 Shuttle works as a proxy on websocket connection and HTTP requests. Incoming JSON RPC requests is translated to corresponding Cosmos HTTP requests and then a result is transmitted in Ethereum format. Websocket connection transmits a new block info from cosmos chain to the client.
